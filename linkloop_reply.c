@@ -39,8 +39,8 @@ int main(int argc, char *argv[]) {
 	size_t len;
 	struct llc_packet spack;
 	struct llc_packet rpack;
-    int nif = argc -1; 	/* number of interfaces to listen */
-    int i = nif;	/* loop iterator */
+	int nif = argc -1;	/* number of interfaces to listen */
+	int i = nif;		/* loop iterator */
 	
 	program = argv[0];
 
@@ -83,5 +83,6 @@ int main(int argc, char *argv[]) {
 			send_packet(sock, argv[i+1], &spack);
 		}
 	} while(1);
+
 	return 0;
 }
