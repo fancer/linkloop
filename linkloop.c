@@ -197,10 +197,12 @@ int main(int argc, char * const argv[]) {
 	if(total_sent == total_good) {
 		printf("  -- OK -- %d packets\n", total_sent);
 		return 0;
-	}
-
-	if(total_good + total_bad == 0)
+	} else if (total_sent == total_timeout) {
 		printf("  -- NO RESPONSE --\n");
+	} else {
+		printf("  -- %u packets transmitted, %u received, %u timed out, %u bad --\n",
+			total_sent, total_good, total_timeout, total_bad);
+	}
 
 	return 1;
 }
