@@ -1,0 +1,55 @@
+#!/bin/bash
+# -*- shell-script -*-
+#
+#  Written by Dominique Domet de Mont, 2007, Dominique.Domet-de-Mont@hp.com
+#  Copyright (C) 2007 Hewlett-Packard Development Company, L.P.
+# 
+#
+# linkloopd     This shell script takes care of starting and stopping
+#              linkloop_reply (HP OpenCall llc replier).
+#
+# description: HP OpenCall llc replier daemon. \
+#	This llc replier mimics the HP UX linkloop utility, \
+#   which is kind of a ping tool at the llc level.
+# processname: linkloop_reply 
+# pidfile: /var/run/linkloop_reply.pid
+# chkconfig: 345 20 80
+
+# source function library
+. /etc/rc.d/init.d/functions
+
+# tools definitions
+linkloop_reply=/usr/local/bin/linkloop_reply
+lanscan=/usr/local/bin/lanscan
+
+case "$1" in
+  start)
+        echo -n "Starting linkloop_reply: "
+        # check if tools are available and executable
+        if [ -x ${linkloop_reply} ] && [ -x ${lanscan} ] ; then
+        	# listen all interfaces reported by lanscan
+        	daemon ${linkloop_reply} `${lanscan} -o` &> /dev/null &
+        	echo_success
+        else
+        	echo_failure
+        fi
+		echo
+        ;;
+  stop)
+	echo -n "Shutting down linkloop_reply: "
+	killproc linkloop_reply
+	echo
+	;;
+  restart)
+        $0 stop
+        $0 start
+        ;;
+  status)
+        status linkloop_reply
+        ;;
+  *)
+	echo "Usage: linkloop_reply {start|stop|restart|status}"
+	exit 1
+esac
+
+exit 0

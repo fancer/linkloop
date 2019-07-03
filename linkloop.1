@@ -1,0 +1,79 @@
+.TH "linkloop" "1" "1.0.1" "Oron Peled & Dominique Domet de Mont" "Network Utilities"
+.SH "NAME"
+.LP 
+linkloop & linkloop_reply & lanscan \- Link layer (layer\-2) connectivity testing
+
+.SH "SYNTAX"
+.LP 
+linkloop [options] destination
+.LP 
+linkloop_reply interface_list
+
+.SH "DESCRIPTION"
+.LP 
+This program is similar to ping(1), but tests connectivity at the
+link layer (layer\-2) instead of the network layer (layer\-3).
+
+It receives one parameter which is the destination address, sends a
+special LLC\-TEST packet and waits for a reply.
+
+linkloop_reply runs as a daemon, listening at the llc level on network interfaces 
+passed on the command line, and responding by sending back a test packet.
+On RedHat flavor systems, linkloop_reply is delivered as a service: /etc/init.d/linkloopd,
+offering start, stop, restart and status services. Starting linkloop_reply as a service
+will make it listen all interfaces detected by lanscan utility.
+
+The destination address can be given in the following forms:
+.LP 
+.TP 
+\fBcolon separated\fR
+Example: 00:02:B3:C0:DC:CA
+.TP 
+\fBHexadecimal\fR
+Example: 0x0002B3C0DCCA
+.TP 
+\fBName\fR
+Taken from /etc/ethers
+
+.SH "OPTIONS"
+.LP 
+.TP 
+\-d
+Debug
+.TP 
+\-i<iface>
+Network interface
+.TP 
+\-t<timeout>
+Timeout between packets
+.TP 
+\-n<retries>
+Number of retries
+.TP 
+\-s<size>
+Packet size in bytes
+.SH "EXAMPLES"
+.TP 
+linkloop 08:00:09:91:88:FE
+Default test against given MAC address
+.TP 
+linkloop \-i eth1 \-t 3 \-n 5 hp\-715
+Testing via eth1 with 3 seconds timeout and 5 frames.
+Run the test against the mac of hp\-715 as taken from
+the /etc/ethers database.
+.TP 
+linkloop_reply eth0 eth3
+Listening and responding on interfaces eth0 and eth3
+
+.TP
+service linkloopd start
+Listening and responding on all known interfaces, as reported by lanscan -o
+
+.SH "AUTHORS"
+.LP 
+Oron Peled <oron@actcom.co.il>
+.LP 
+Dominique Domet de Mont <Dominique.Domet-de-Mont@hp.com>
+.SH "SEE ALSO"
+.LP 
+ping(1) ip(8)

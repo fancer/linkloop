@@ -1,0 +1,13 @@
+* Changes from 1.0.0 by Dominique Domet de Mont <Dominique.Domet-de-Mont@hp.com>
+  - linkloop_reply replies only on the interface having received the packet, instead of all.
+
+* Changes from 0.0.2 by Dominique Domet de Mont <Dominique.Domet-de-Mont@hp.com>
+  - MAC address output format changed to 0x%02X%02X%02X%02X%02X%02X to mimic HP UX ouput
+  - do not stop listening when receiving an unexpected packet
+  - lanscan options to support various display options
+  - linkloop_reply able to listen several ports passed as parameter instead of just eth0
+  - /etc/init.d/linkloopd service shell script taking care of starting and stopping linkloop_reply 
+  
+* Changes from 0.0.1
+  - Updated man page documenting all options
+  - Better validation and reporting of received packets

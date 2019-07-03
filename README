@@ -1,0 +1,28 @@
+This program is similar to ping(1), but tests connectivity at the
+link layer (layer-2) instead of the network layer (layer-3).
+
+HPUX has linkloop support for ages, and lately I googled a little
+and found that link-layer connectivity loopback testing is part
+of the IEEE 802.2LLC standard.
+
+So I went and written:
+	- linkloop for Linux.
+	- linkloop_reply as a user space reply program. Used for
+	  testing against Linux until the Linux kernel has native
+	  support for this protocol (in my TODO :-)
+	- lanscan is a small utility to show local interfaces
+	  with their mac addresses. Yes I know 'ip link' gives
+	  the same information, I just wanted to play with some
+	  ioctls :-)
+
+To get me started I grabbed some examples from spak
+	http://www.xenos.net/software/spak/
+(Which wasn't compiling cleanly on my machine BTW).
+
+It was tested against HPUX-11.0 and Linux (when running linkloop_reply)
+both ways.
+
+My linkloop accepts MAC address in:
+	- HPUX notation (0x......)
+	- Colon separated (00:BC:.....)
+	- A name from /etc/ethers
