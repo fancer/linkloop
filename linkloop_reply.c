@@ -35,12 +35,12 @@ u_int8_t	mac_dst[IFHWADDRLEN];
 u_int8_t	mac_src[IFHWADDRLEN];
 
 int main(int argc, char *argv[]) {
-	int sock;
-	size_t len;
 	struct llc_packet spack;
 	struct llc_packet rpack;
 	int nif = argc -1;	/* number of interfaces to listen */
 	int i = nif;		/* loop iterator */
+	size_t len;
+	int sock;
 	
 	program = argv[0];
 
@@ -69,7 +69,7 @@ int main(int argc, char *argv[]) {
 		len = recv_packet(sock, &rpack);
 		memcpy(mac_src, rpack.eth_hdr.ether_shost, IFHWADDRLEN);
 		memcpy(mac_dst, rpack.eth_hdr.ether_dhost, IFHWADDRLEN);
-		
+
 		/* check against listened interfaces */
 		for(i = nif; i--;)
 		{

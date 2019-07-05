@@ -15,22 +15,23 @@
 
 #include <netinet/if_ether.h>
 
-#define	PACK_SIZE	1514	/* This is what HPUX sends and responds to */
+#define DATA_SIZE(_pack_size)	(_pack_size - sizeof(struct llc))
+#define	MAX_DATA_SIZE		DATA_SIZE(ETH_DATA_LEN)	/* This is what HPUX sends and responds to */
 
 #define	MAX_IFACES	20
 
 /* Describe an 802.2LLC packet */
 struct llc {
-		unsigned char dsap;
-		unsigned char ssap;
-		unsigned char ctrl;
-};
+	unsigned char dsap;
+	unsigned char ssap;
+	unsigned char ctrl;
+} __attribute__ ((__packed__));
 struct llc_packet {
 	struct ether_header eth_hdr;
 	struct llc llc;
 	/* Some test data */
-	unsigned char data[PACK_SIZE - sizeof(struct llc) - sizeof(struct ether_header)];
-};
+	unsigned char data[MAX_DATA_SIZE];
+} __attribute__ ((__packed__));
 
 #define	TEST_CMD	0xE3	/* From 802.2LLC (HPUX sends 0xF3) */
 

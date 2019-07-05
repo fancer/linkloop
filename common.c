@@ -111,7 +111,7 @@ void mk_test_packet(struct llc_packet *pack, const u_int8_t src[], const u_int8_
 	pack->llc.ssap = (response) ? 0x01 : 0x80;	/* XNS? */
 	pack->llc.ctrl = TEST_CMD;			/* TEST */
 
-	for(i = 0; i < len; i++)
+	for(i = 0; i < DATA_SIZE(len); i++)
 		pack->data[i] = i;
 }
 

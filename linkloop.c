@@ -81,7 +81,7 @@ void handle_options(int argc, char * const argv[]) {
 		case 's':
 			pack_size = strtol(optarg, NULL, 0);
 			if(pack_size > ETH_DATA_LEN) {
-				fprintf(stderr, "%s: Illegal size specified (%d) > ETH_DATA_LEN (%d)\n",
+				fprintf(stderr, "%s: Illegal size specified (%d) > (%d)\n",
 					program, pack_size, ETH_DATA_LEN);
 				exit(1);
 			}
@@ -120,10 +120,9 @@ static void set_sighandlers() {
 }
 
 static int linkloop(int sock, const u_int8_t mac_src[], const u_int8_t mac_dst[]) {
-	int ret;
 	struct llc_packet spack;
 	struct llc_packet rpack;
-	int datasize = pack_size - sizeof(struct llc) - sizeof(struct ether_header);
+	int ret;
 
 	mk_test_packet(&spack, mac_src, mac_dst, pack_size, 0);
 	if(alarm(timeout) < 0) {
@@ -149,7 +148,7 @@ static int linkloop(int sock, const u_int8_t mac_src[], const u_int8_t mac_dst[]
 			mac2str(rpack.eth_hdr.ether_shost));
 		return 0;
 	}
-	if(memcmp(spack.data, rpack.data, datasize) != 0) {
+	if(memcmp(spack.data, rpack.data, DATA_SIZE(pack_size)) != 0) {
 		total_bad++;
 		printf("  ** BAD RESPONSE\n");
 		dump_packet(&rpack);
