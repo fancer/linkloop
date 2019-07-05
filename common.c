@@ -121,7 +121,7 @@ void send_packet(int sock, const char iface[], struct llc_packet *pack) {
 
 	bzero((char *)&sa, sizeof(struct sockaddr));
 	sa.sa_family = AF_INET;
-	strncpy(sa.sa_data, iface, IF_NAMESIZE - 1);
+	strncpy(sa.sa_data, iface, 14);
 
 	/* Send the packet */
 	ret = sendto(sock, pack, sizeof(*pack), 0, (struct sockaddr *)&sa, sizeof(sa));
