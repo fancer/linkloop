@@ -124,19 +124,20 @@ void send_packet(int sock, const char iface[], struct llc_packet *pack) {
 	strncpy(sa.sa_data, iface, 14);
 
 	/* Send the packet */
-	ret = sendto(sock, pack, sizeof(*pack), 0, (struct sockaddr *)&sa, sizeof(sa));
+	ret = sendto(sock, pack, FRAME_SIZE(pack), 0, (struct sockaddr *)&sa, sizeof(sa));
 	if(ret == -1) {
 		perror("sendto");
 		exit(1);
 	}
-	if(ret != sizeof(*pack))
+	if(ret != FRAME_SIZE(pack))
 		fprintf(stderr, "Warning: Incomplete packet sent\n");
 	if(debug_flag)
-		printf("sent TEST packet to %s\n", mac2str(pack->eth_hdr.ether_dhost));
+		printf("sent TEST packet (%d bytes) to %s\n",
+			ntohs(pack->eth_hdr.ether_type), mac2str(pack->eth_hdr.ether_dhost));
 }
 
 int recv_packet(int sock, struct llc_packet *pack) {
-	struct sockaddr sa;
+	struct sockaddr sa = {0};
 	socklen_t len;
 	int ret;
 

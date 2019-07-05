@@ -17,6 +17,7 @@
 
 #define DATA_SIZE(_pack_size)	(_pack_size - sizeof(struct llc))
 #define	MAX_DATA_SIZE		DATA_SIZE(ETH_DATA_LEN)	/* This is what HPUX sends and responds to */
+#define FRAME_SIZE(_pack)	(ntohs((_pack)->eth_hdr.ether_type) + sizeof(struct ether_header))
 
 #define	MAX_IFACES	20
 
