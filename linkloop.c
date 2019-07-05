@@ -139,10 +139,11 @@ static int linkloop(int sock, const u_int8_t mac_src[], const u_int8_t mac_dst[]
 	}
 	if(spack.eth_hdr.ether_type != rpack.eth_hdr.ether_type) {
 		total_bad++;
-		printf("  ** BAD RECEIVED LENTH = %d\n", rpack.eth_hdr.ether_type);
+		printf("  ** BAD RECEIVED LENGTH = %d\n", rpack.eth_hdr.ether_type);
 		return 0;
 	}
-	if(memcmp(spack.eth_hdr.ether_dhost, rpack.eth_hdr.ether_shost, IFHWADDRLEN) != 0) {
+	if(memcmp(spack.eth_hdr.ether_dhost, rpack.eth_hdr.ether_shost, IFHWADDRLEN) != 0 &&
+	   memcmp(spack.eth_hdr.ether_shost, rpack.eth_hdr.ether_shost, IFHWADDRLEN) != 0) {
 		total_bad++;
 		printf("  ** ROGUE RESPONDER: received from %s\n",
 			mac2str(rpack.eth_hdr.ether_shost));
