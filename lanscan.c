@@ -60,7 +60,7 @@ static struct if_flag {
 	{ IFF_AUTOMEDIA, "AUTOMEDIA" },
 };
 
-short int get_ifflags(int sock, const char name[]) {
+static short int get_ifflags(int sock, const char name[]) {
 	struct ifreq ifr;
 
 	strncpy(ifr.ifr_name, name, IFNAMSIZ);
@@ -71,7 +71,7 @@ short int get_ifflags(int sock, const char name[]) {
 	return ifr.ifr_flags;
 }
 
-static void usage(char *program) {
+static void usage(const char *program) {
 	fprintf(stderr, "Usage: %s -[option...]\n"
 		"\t-h		Print this help text\n"
 		"\t-?		Print this help text\n"
@@ -84,29 +84,29 @@ static void usage(char *program) {
 	exit(1);
 }
 
-int main(int argc, char * const argv[]) 
-{
+int main(int argc, char *argv[]) {
 	struct ifconf ifc;
 	struct ifreq ifr_x[MAX_IFACES];
-	int sock, err, ifindex;
+	int sock, err, ifindex, i;
 	u_int8_t myMAC[IFHWADDRLEN];
+	short int flags;
 
 	/* check options if any */
-	if(argc > 1)
-	{
+	if(argc > 1) {
 		/* unsupported options or help */
-		if(strpbrk(argv[1], "aiso") == NULL)
-		{
+		if(strpbrk(argv[1], "aiso") == NULL) {
 			usage(argv[0]);
 		}
 		
-		// supported options provided: turn the header display off
+		/* supported options provided: turn the header display off */
 		ls.displayHeader = 0;
-		if(strchr(argv[1], 'i') == NULL)ls.displayNames = 0;
-		if(strchr(argv[1], 'a') == NULL)ls.displayMac = 0;
-		if(strchr(argv[1], 's') == NULL)ls.displayState = 0;
-		if(strchr(argv[1], 'o'))
-		{
+		if (strchr(argv[1], 'i') == NULL)
+			ls.displayNames = 0;
+		if (strchr(argv[1], 'a') == NULL)
+			ls.displayMac = 0;
+		if (strchr(argv[1], 's') == NULL)
+			ls.displayState = 0;
+		if (strchr(argv[1], 'o')) {
 			ls.displayOneline = 1;
 			ls.displayState = ls.displayMac = ls.displayNames = 0;
 		}
@@ -119,49 +119,52 @@ int main(int argc, char * const argv[])
 
 	ifc.ifc_len = MAX_IFACES * sizeof(struct ifreq);
 	ifc.ifc_req = ifr_x;
-	if((err = ioctl(sock, SIOCGIFCONF, &ifc)) < 0) {
+	if ((err = ioctl(sock, SIOCGIFCONF, &ifc)) < 0) {
 		perror("ioctl");
 		exit(1);
 	}
-	if(ls.displayHeader)
+	if (ls.displayHeader)
 		printf("retrieved info for %i interface(s)\n", ifc.ifc_len / sizeof(struct ifreq));
-	for (err = 0; err < ifc.ifc_len / sizeof(struct ifreq); err++) 
-	{
-		int i;
-		short int flags = get_ifflags(sock, ifr_x[err].ifr_name);
+
+	for (err = 0; err < ifc.ifc_len / sizeof(struct ifreq); err++) {
+		flags = get_ifflags(sock, ifr_x[err].ifr_name);
 		get_hwaddr(sock, ifr_x[err].ifr_name, &ifindex, myMAC);
 		
-		// Discard local loopback port
-		if(strcmp(ifr_x[err].ifr_name, "lo") == 0)
+		/* Discard local loopback port */
+		if (strcmp(ifr_x[err].ifr_name, "lo") == 0)
 			continue;
 			
-		// Discard alias ports, ie name including a column ':'
-		if(strchr(ifr_x[err].ifr_name, ':'))
+		/* Discard alias ports, ie name including a column ':' */
+		if (strchr(ifr_x[err].ifr_name, ':'))
 			continue;
 			
-		if(ls.displayOneline)
-		{
-			// just print the interface name
+		if (ls.displayOneline) {
 			printf("%s\t", ifr_x[err].ifr_name);
 			continue;
 		}
 		
-		if(ls.displayMac)printf("%s\t", 
-			mac2str(myMAC));
-		// here, in order to mimic the HP UX output, we print the interface name,
-		// interface physical point of attachement, physical point ID
-		// as the same "interface name"
-		if(ls.displayNames)printf("%s %s %s\t", 
-			ifr_x[err].ifr_name, ifr_x[err].ifr_name, ifr_x[err].ifr_name);
-		if(ls.displayState)
-		{
+		if (ls.displayMac)
+			printf("%s\t", mac2str(myMAC));
+
+		/* here, in order to mimic the HP UX output, we print the interface name,
+		 * interface physical point of attachement, physical point ID
+		 * as the same "interface name"
+		 */
+		if (ls.displayNames) {
+			printf("%s %s %s\t", ifr_x[err].ifr_name, ifr_x[err].ifr_name,
+					     ifr_x[err].ifr_name);
+		}
+
+		if (ls.displayState) {
 			putchar('<');
-			for(i = 0; i < sizeof(if_flags)/sizeof(if_flags[0]); i++)
-				if(flags & if_flags[i].flag)
+			for (i = 0; i < sizeof(if_flags)/sizeof(if_flags[0]); i++) {
+				if (flags & if_flags[i].flag)
 					printf("%s ", if_flags[i].flag_name);
+			}
 			putchar('>');
 		}
 		putchar('\n');
 	}
+
 	return EXIT_SUCCESS;
 }
