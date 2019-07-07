@@ -56,8 +56,6 @@ static struct linkloop ll = {
 	.src_iface = "eth0"
 };
 
-extern int	debug_flag;
-
 #define	OPTSTRING	"di:t:n:s:"
 const char *program = NULL;
 const char *arg_addr;

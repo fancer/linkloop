@@ -38,6 +38,8 @@ struct llc_packet {
 
 #define	TEST_CMD	0xE3	/* From 802.2LLC (HPUX sends 0xF3) */
 
+extern int debug_flag;
+
 void dump_packet(struct llc_packet *pack);
 char *mac2str(u_int8_t *s);
 int parse_address(u_int8_t mac[], const char *str);
