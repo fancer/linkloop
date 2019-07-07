@@ -31,14 +31,14 @@
 
 /* Linkloop reply configuration */
 static struct linkloop_reply {
+	const char *program;
+
 	int ifindex_listen[MAX_IFACES];
 	u_int8_t mac_listen[MAX_IFACES][IFHWADDRLEN];
 	u_int8_t src_mac[IFHWADDRLEN];
 	u_int8_t dst_mac[IFHWADDRLEN];
 } llr;
  
-static char	*program = NULL;
-
 int main(int argc, char *argv[]) {
 	struct llc_packet spack;
 	struct llc_packet rpack;
@@ -48,12 +48,13 @@ int main(int argc, char *argv[]) {
 	int sock;
 	int i;
 	
-	program = argv[0];
+	llr.program = argv[0];
 
-	if(nif == 0 || nif > MAX_IFACES)
+	if (nif == 0 || nif > MAX_IFACES)
 	{
 		/* one parameter expected at least: the lan interface name to listen */
-		printf("Expecting a list of one to %d interfaces to listen; eg: %s eth0 eth3\n", MAX_IFACES, program);
+		printf("Expecting a list of one to %d interfaces to listen; eg: %s eth0 eth3\n",
+			MAX_IFACES, llr.program);
 		return 1;
 	}
 
