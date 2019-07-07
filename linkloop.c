@@ -32,33 +32,29 @@ static char rcsid[] = "$Id: linkloop.c,v 0.4 2005/04/18 08:10:09 oron Exp $";
 #include "linkloop.h"
 
 /* Linkloop configuration */
-struct linkloop {
+static struct linkloop {
+	const char *program;
+
 	size_t pack_size;
 	int timeout;
 	int retries;
+
 	const char *src_iface;
 	int src_ifindex;
 	u_int8_t src_mac[IFHWADDRLEN];
+	const char *dst_mac_str;
 	u_int8_t dst_mac[IFHWADDRLEN];
-};
 
-/* Statistic counters */
-static unsigned total_sent = 0;
-static unsigned total_good = 0;
-static unsigned total_timeout = 0;
-static unsigned total_bad = 0;
-
-/* Configurable options */
-static struct linkloop ll = {
+	unsigned int total_sent;
+	unsigned int total_good;
+	unsigned int total_timeout;
+	unsigned int total_bad;
+} ll = {
 	.pack_size = ETH_DATA_LEN,	/* 0x05DC == 1500 */
 	.timeout = 2,
 	.retries = 1,
 	.src_iface = "eth0"
 };
-
-#define	OPTSTRING	"di:t:n:s:"
-const char *program = NULL;
-const char *arg_addr;
 
 void usage() {
 	fprintf(stderr, "Usage: %s [option...] mac_addr\n"
@@ -67,7 +63,7 @@ void usage() {
 		"\t-t<timeout>	Timeout between packets\n"
 		"\t-n<retries>	Number of retries\n"
 		"\t-s<size>	Packet size in bytes\n"
-		, program
+		, ll.program
 	);
 	exit(1);
 }
@@ -75,8 +71,8 @@ void usage() {
 void handle_options(int argc, char * const argv[]) {
 	int c;
 
-	program = argv[0];
-	while((c = getopt(argc, argv, OPTSTRING)) != -1)
+	ll.program = argv[0];
+	while((c = getopt(argc, argv, "di:t:n:s:")) != -1)
 		switch(c) {
 		case 'd':
 			debug_flag = 1;
@@ -94,12 +90,12 @@ void handle_options(int argc, char * const argv[]) {
 			ll.pack_size = strtol(optarg, NULL, 0);
 			if(ll.pack_size > ETH_DATA_LEN) {
 				fprintf(stderr, "%s: Illegal size specified %d > %d (ETH_DATA_LEN)\n",
-					program, ll.pack_size, ETH_DATA_LEN);
+					ll.program, ll.pack_size, ETH_DATA_LEN);
 				exit(1);
 			}
 			break;
 		default:
-			fprintf(stderr, "%s: unknown option code 0x%x\n", program, c);
+			fprintf(stderr, "%s: unknown option code 0x%x\n", ll.program, c);
 		case '?':
 			usage();
 		}
@@ -107,10 +103,10 @@ void handle_options(int argc, char * const argv[]) {
 		fprintf(stderr, "interface=%s timeout=%d num=%d size=%d\n",
 			ll.src_iface, ll.timeout, ll.retries, ll.pack_size);
 	if(optind != argc - 1) {
-		fprintf(stderr, "%s: missing target address\n", program);
+		fprintf(stderr, "%s: missing target address\n", ll.program);
 		usage();
 	}
-	arg_addr = argv[optind];
+	ll.dst_mac_str = argv[optind];
 }
 
 void sig_alarm(int signo) {
@@ -143,32 +139,32 @@ static int linkloop(int sock) {
 		exit(1);
 	}
 	send_packet(sock, &spack, &sll);
-	total_sent++;
+	ll.total_sent++;
 	ret = recv_packet(sock, &rpack);
 	if(ret == 0) {		/* timeout */
 		fprintf(stderr, "  ** TIMEOUT (%d seconds)\n", ll.timeout);
-		total_timeout++;
+		ll.total_timeout++;
 		return 0;
 	}
 	if(spack.eth_hdr.ether_type != rpack.eth_hdr.ether_type) {
-		total_bad++;
+		ll.total_bad++;
 		printf("  ** BAD RECEIVED LENGTH = %d\n", rpack.eth_hdr.ether_type);
 		return 0;
 	}
 	if(memcmp(spack.eth_hdr.ether_dhost, rpack.eth_hdr.ether_shost, IFHWADDRLEN) != 0 &&
 	   memcmp(spack.eth_hdr.ether_shost, rpack.eth_hdr.ether_shost, IFHWADDRLEN) != 0) {
-		total_bad++;
+		ll.total_bad++;
 		printf("  ** ROGUE RESPONDER: received from %s\n",
 			mac2str(rpack.eth_hdr.ether_shost));
 		return 0;
 	}
 	if(memcmp(spack.data, rpack.data, DATA_SIZE(ll.pack_size)) != 0) {
-		total_bad++;
+		ll.total_bad++;
 		printf("  ** BAD RESPONSE\n");
 		dump_packet(&rpack);
 		return 0;
 	}
-	total_good++;
+	ll.total_good++;
 	return 1;
 }
 
@@ -177,12 +173,12 @@ int main(int argc, char * const argv[]) {
 
 	handle_options(argc, argv);
 
-	if(!parse_address(ll.dst_mac, arg_addr)) {
-		fprintf(stderr, "%s: bad DST address - %s\n", program, arg_addr);
+	if(!parse_address(ll.dst_mac, ll.dst_mac_str)) {
+		fprintf(stderr, "%s: bad DST address - %s\n", ll.program, ll.dst_mac_str);
 		return 1;
 	}
 
-	printf("Link connectivity to LAN station: %s (HW addr %s)\n", arg_addr, mac2str(ll.dst_mac));
+	printf("Link connectivity to LAN station: %s (HW addr %s)\n", ll.dst_mac_str, mac2str(ll.dst_mac));
 
 	/* Open a socket */
 	if((sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_802_2))) == -1) {
@@ -203,14 +199,14 @@ int main(int argc, char * const argv[]) {
 			printf("Retry %d...\n", i);
 	}
 
-	if(total_sent == total_good) {
-		printf("  -- OK -- %d packets\n", total_sent);
+	if(ll.total_sent == ll.total_good) {
+		printf("  -- OK -- %d packets\n", ll.total_sent);
 		return 0;
-	} else if (total_sent == total_timeout) {
+	} else if (ll.total_sent == ll.total_timeout) {
 		printf("  -- NO RESPONSE --\n");
 	} else {
 		printf("  -- %u packets transmitted, %u received, %u timed out, %u bad --\n",
-			total_sent, total_good, total_timeout, total_bad);
+			ll.total_sent, ll.total_good, ll.total_timeout, ll.total_bad);
 	}
 
 	return 1;
