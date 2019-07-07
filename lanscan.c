@@ -23,7 +23,23 @@
 #include "config.h"
 #include "linkloop.h"
 
-struct if_flag {
+/* Linkloop configuration */
+static struct lanscan {
+	char displayHeader; 	/* display header before listing interfaces */
+	char displayMac; 	/* display the MAC address */
+	char displayNames;	/* display interface names */
+	char displayState;	/* display interface states */
+	char displayOneline;	/* display one line summary */
+
+} ls = {
+	.displayHeader = 1,
+	.displayMac = 1,
+	.displayNames = 1,
+	.displayState = 1,
+	.displayOneline = 0
+};
+
+static struct if_flag {
 	short int flag;
 	char *flag_name;
 } if_flags[] = {
@@ -47,7 +63,7 @@ struct if_flag {
 short int get_ifflags(int sock, const char name[]) {
 	struct ifreq ifr;
 
-	strncpy(ifr.ifr_name, name, IF_NAMESIZE - 1);
+	strncpy(ifr.ifr_name, name, IFNAMSIZ);
 	if (ioctl(sock, SIOCGIFFLAGS, &ifr) < 0) {
 		perror("ioctl(SIOCGIFFLAGS)");
 		exit(1);
@@ -74,11 +90,6 @@ int main(int argc, char * const argv[])
 	struct ifreq ifr_x[MAX_IFACES];
 	int sock, err, ifindex;
 	u_int8_t myMAC[IFHWADDRLEN];
-	char displayHeader = 1, 	/* display header before listing interfaces */
-		 displayMac = 1, 	/* display the MAC address */
-		 displayNames = 1,	/* display interface names */
-		 displayState = 1,	/* display interface states */
-		 displayOneline = 0;/* display one line summary */
 
 	/* check options if any */
 	if(argc > 1)
@@ -90,14 +101,14 @@ int main(int argc, char * const argv[])
 		}
 		
 		// supported options provided: turn the header display off
-		displayHeader = 0;
-		if(strchr(argv[1], 'i') == NULL)displayNames = 0;
-		if(strchr(argv[1], 'a') == NULL)displayMac = 0;
-		if(strchr(argv[1], 's') == NULL)displayState = 0;
+		ls.displayHeader = 0;
+		if(strchr(argv[1], 'i') == NULL)ls.displayNames = 0;
+		if(strchr(argv[1], 'a') == NULL)ls.displayMac = 0;
+		if(strchr(argv[1], 's') == NULL)ls.displayState = 0;
 		if(strchr(argv[1], 'o'))
 		{
-			displayOneline = 1;
-			displayState = displayMac = displayNames = 0;
+			ls.displayOneline = 1;
+			ls.displayState = ls.displayMac = ls.displayNames = 0;
 		}
 	}
 	
@@ -112,7 +123,7 @@ int main(int argc, char * const argv[])
 		perror("ioctl");
 		exit(1);
 	}
-	if(displayHeader)
+	if(ls.displayHeader)
 		printf("retrieved info for %i interface(s)\n", ifc.ifc_len / sizeof(struct ifreq));
 	for (err = 0; err < ifc.ifc_len / sizeof(struct ifreq); err++) 
 	{
@@ -128,21 +139,21 @@ int main(int argc, char * const argv[])
 		if(strchr(ifr_x[err].ifr_name, ':'))
 			continue;
 			
-		if(displayOneline)
+		if(ls.displayOneline)
 		{
 			// just print the interface name
 			printf("%s\t", ifr_x[err].ifr_name);
 			continue;
 		}
 		
-		if(displayMac)printf("%s\t", 
+		if(ls.displayMac)printf("%s\t", 
 			mac2str(myMAC));
 		// here, in order to mimic the HP UX output, we print the interface name,
 		// interface physical point of attachement, physical point ID
 		// as the same "interface name"
-		if(displayNames)printf("%s %s %s\t", 
+		if(ls.displayNames)printf("%s %s %s\t", 
 			ifr_x[err].ifr_name, ifr_x[err].ifr_name, ifr_x[err].ifr_name);
-		if(displayState)
+		if(ls.displayState)
 		{
 			putchar('<');
 			for(i = 0; i < sizeof(if_flags)/sizeof(if_flags[0]); i++)
