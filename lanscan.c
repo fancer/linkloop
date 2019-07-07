@@ -72,7 +72,7 @@ int main(int argc, char * const argv[])
 {
 	struct ifconf ifc;
 	struct ifreq ifr_x[MAX_IFACES];
-	int sock, err;
+	int sock, err, ifindex;
 	u_int8_t myMAC[IFHWADDRLEN];
 	char displayHeader = 1, 	/* display header before listing interfaces */
 		 displayMac = 1, 	/* display the MAC address */
@@ -118,7 +118,7 @@ int main(int argc, char * const argv[])
 	{
 		int i;
 		short int flags = get_ifflags(sock, ifr_x[err].ifr_name);
-		get_hwaddr(sock, ifr_x[err].ifr_name, myMAC);
+		get_hwaddr(sock, ifr_x[err].ifr_name, &ifindex, myMAC);
 		
 		// Discard local loopback port
 		if(strcmp(ifr_x[err].ifr_name, "lo") == 0)

@@ -15,6 +15,7 @@
 
 #include "config.h"
 #include <netinet/in.h>		/* for htons(3)			*/
+#include <linux/if_packet.h>
 
 #if HAVE_ETHER_HOSTTON
 #include <netinet/ether.h>	/* for ether_hostton(3)		*/
@@ -89,23 +90,38 @@ int parse_address(u_int8_t mac[], const char *str) {
 	return 1;
 }
 
-void get_hwaddr(int sock, const char name[], u_int8_t mac[]) {
+void get_hwaddr(int sock, const char iface[], int *ifindex, u_int8_t mac[]) {
 	struct ifreq ifr;
 
-	strncpy(ifr.ifr_name, name, IF_NAMESIZE - 1);
+	strncpy(ifr.ifr_name, iface, IFNAMSIZ);
 	if(ioctl(sock, SIOCGIFHWADDR, &ifr) < 0) {
 		perror("ioctl(SIOCGIFHWADDR)");
 		exit(1);
 	}
 	memcpy(mac, ifr.ifr_hwaddr.sa_data, IFHWADDRLEN);
+
+	if (ioctl(sock, SIOCGIFINDEX, &ifr) < 0) {
+		perror("ioctl(SIOCGIFINDEX)");
+		exit(1);
+	}
+	*ifindex = ifr.ifr_ifindex;
 }
 
-void mk_test_packet(struct llc_packet *pack, const u_int8_t src[], const u_int8_t dst[], size_t len, int response) {
+void mk_test_packet(struct llc_packet *pack, struct sockaddr_ll *sll,
+		    const u_int8_t src_mac[], int src_ifindex,
+		    const u_int8_t dst_mac[], size_t len, int response) {
 	int i;
 
+	bzero(sll, sizeof(*sll));
+	sll->sll_family = AF_PACKET;
+	sll->sll_protocol = htons(ETH_P_802_2);
+	sll->sll_ifindex = src_ifindex;
+	sll->sll_halen = ETH_ALEN;
+	memcpy(sll->sll_addr, dst_mac, ETH_ALEN);
+
 	assert(len <= ETH_DATA_LEN);			/* 0x05DC == 1500 */
-	memcpy(pack->eth_hdr.ether_dhost, dst, IFHWADDRLEN);
-	memcpy(pack->eth_hdr.ether_shost, src, IFHWADDRLEN);
+	memcpy(pack->eth_hdr.ether_dhost, dst_mac, IFHWADDRLEN);
+	memcpy(pack->eth_hdr.ether_shost, src_mac, IFHWADDRLEN);
 	pack->eth_hdr.ether_type = htons(len);
 	pack->llc.dsap = (response) ? 0x80 : 0x00;
 	pack->llc.ssap = (response) ? 0x01 : 0x80;	/* XNS? */
@@ -115,16 +131,11 @@ void mk_test_packet(struct llc_packet *pack, const u_int8_t src[], const u_int8_
 		pack->data[i] = i;
 }
 
-void send_packet(int sock, const char iface[], struct llc_packet *pack) {
-	struct sockaddr sa;
+void send_packet(int sock, struct llc_packet *pack, struct sockaddr_ll *sll) {
 	int ret;
 
-	bzero((char *)&sa, sizeof(struct sockaddr));
-	sa.sa_family = AF_INET;
-	strncpy(sa.sa_data, iface, 14);
-
 	/* Send the packet */
-	ret = sendto(sock, pack, FRAME_SIZE(pack), 0, (struct sockaddr *)&sa, sizeof(sa));
+	ret = sendto(sock, pack, FRAME_SIZE(pack), 0, (struct sockaddr *)sll, sizeof(*sll));
 	if(ret == -1) {
 		perror("sendto");
 		exit(1);
@@ -137,12 +148,12 @@ void send_packet(int sock, const char iface[], struct llc_packet *pack) {
 }
 
 int recv_packet(int sock, struct llc_packet *pack) {
-	struct sockaddr sa = {0};
+	struct sockaddr_ll sll = {0};
 	socklen_t len;
 	int ret;
 
-	len = sizeof(sa);
-	ret = recvfrom(sock, pack, sizeof(*pack), 0, (struct sockaddr *)&sa, &len);
+	len = sizeof(sll);
+	ret = recvfrom(sock, pack, sizeof(*pack), 0, (struct sockaddr *)&sll, &len);
 	if(ret == -1) {
 		if(errno == EINTR)	/* We have a timeout */
 			return 0;
@@ -159,4 +170,3 @@ int recv_packet(int sock, struct llc_packet *pack) {
 		printf("received TEST packet (%d bytes) from %s\n", ret, mac2str(pack->eth_hdr.ether_shost));
 	return ret;
 }
-

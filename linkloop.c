@@ -25,10 +25,22 @@ static char rcsid[] = "$Id: linkloop.c,v 0.4 2005/04/18 08:10:09 oron Exp $";
 #include <signal.h>
 #include <sys/types.h>
 #include <sys/socket.h>
+#include <linux/if_packet.h>
 #include <net/if.h>	/* for IF_NAMESIZE, IFHWADDRLEN */
 #include <arpa/inet.h>
 #include "config.h"
 #include "linkloop.h"
+
+/* Linkloop configuration */
+struct linkloop {
+	size_t pack_size;
+	int timeout;
+	int retries;
+	const char *src_iface;
+	int src_ifindex;
+	u_int8_t src_mac[IFHWADDRLEN];
+	u_int8_t dst_mac[IFHWADDRLEN];
+};
 
 /* Statistic counters */
 static unsigned total_sent = 0;
@@ -37,10 +49,12 @@ static unsigned total_timeout = 0;
 static unsigned total_bad = 0;
 
 /* Configurable options */
-size_t	pack_size = ETH_DATA_LEN;	/* 0x05DC == 1500 */
-int	timeout = 2;
-int	retries = 1;
-char	*iface = "eth0";
+static struct linkloop ll = {
+	.pack_size = ETH_DATA_LEN,	/* 0x05DC == 1500 */
+	.timeout = 2,
+	.retries = 1,
+	.src_iface = "eth0"
+};
 
 extern int	debug_flag;
 
@@ -70,19 +84,19 @@ void handle_options(int argc, char * const argv[]) {
 			debug_flag = 1;
 			break;
 		case 'i':
-			iface = optarg;
+			ll.src_iface = optarg;
 			break;
 		case 't':
-			timeout = strtol(optarg, NULL, 0);
+			ll.timeout = strtol(optarg, NULL, 0);
 			break;
 		case 'n':
-			retries = strtol(optarg, NULL, 0);
+			ll.retries = strtol(optarg, NULL, 0);
 			break;
 		case 's':
-			pack_size = strtol(optarg, NULL, 0);
-			if(pack_size > ETH_DATA_LEN) {
-				fprintf(stderr, "%s: Illegal size specified (%d) > (%d)\n",
-					program, pack_size, ETH_DATA_LEN);
+			ll.pack_size = strtol(optarg, NULL, 0);
+			if(ll.pack_size > ETH_DATA_LEN) {
+				fprintf(stderr, "%s: Illegal size specified %d > %d (ETH_DATA_LEN)\n",
+					program, ll.pack_size, ETH_DATA_LEN);
 				exit(1);
 			}
 			break;
@@ -93,9 +107,9 @@ void handle_options(int argc, char * const argv[]) {
 		}
 	if(debug_flag)
 		fprintf(stderr, "interface=%s timeout=%d num=%d size=%d\n",
-			iface, timeout, retries, pack_size);
+			ll.src_iface, ll.timeout, ll.retries, ll.pack_size);
 	if(optind != argc - 1) {
-		fprintf(stderr, "%s: missing target address\n");
+		fprintf(stderr, "%s: missing target address\n", program);
 		usage();
 	}
 	arg_addr = argv[optind];
@@ -119,21 +133,22 @@ static void set_sighandlers() {
 	}
 }
 
-static int linkloop(int sock, const u_int8_t mac_src[], const u_int8_t mac_dst[]) {
+static int linkloop(int sock) {
 	struct llc_packet spack;
 	struct llc_packet rpack;
+	struct sockaddr_ll sll;
 	int ret;
 
-	mk_test_packet(&spack, mac_src, mac_dst, pack_size, 0);
-	if(alarm(timeout) < 0) {
+	mk_test_packet(&spack, &sll, ll.src_mac, ll.src_ifindex, ll.dst_mac, ll.pack_size, 0);
+	if(alarm(ll.timeout) < 0) {
 		perror("alarm");
 		exit(1);
 	}
-	send_packet(sock, iface, &spack);
+	send_packet(sock, &spack, &sll);
 	total_sent++;
 	ret = recv_packet(sock, &rpack);
 	if(ret == 0) {		/* timeout */
-		fprintf(stderr, "  ** TIMEOUT (%d seconds)\n", timeout);
+		fprintf(stderr, "  ** TIMEOUT (%d seconds)\n", ll.timeout);
 		total_timeout++;
 		return 0;
 	}
@@ -149,7 +164,7 @@ static int linkloop(int sock, const u_int8_t mac_src[], const u_int8_t mac_dst[]
 			mac2str(rpack.eth_hdr.ether_shost));
 		return 0;
 	}
-	if(memcmp(spack.data, rpack.data, DATA_SIZE(pack_size)) != 0) {
+	if(memcmp(spack.data, rpack.data, DATA_SIZE(ll.pack_size)) != 0) {
 		total_bad++;
 		printf("  ** BAD RESPONSE\n");
 		dump_packet(&rpack);
@@ -160,35 +175,31 @@ static int linkloop(int sock, const u_int8_t mac_src[], const u_int8_t mac_dst[]
 }
 
 int main(int argc, char * const argv[]) {
-	int sock;
-	int i;
-
-	u_int8_t mac_src[IFHWADDRLEN];
-	u_int8_t mac_dst[IFHWADDRLEN];
+	int sock, i;
 
 	handle_options(argc, argv);
 
-	if(!parse_address(mac_dst, arg_addr)) {
+	if(!parse_address(ll.dst_mac, arg_addr)) {
 		fprintf(stderr, "%s: bad DST address - %s\n", program, arg_addr);
 		return 1;
 	}
 
-	printf("Link connectivity to LAN station: %s (HW addr %s)\n", arg_addr, mac2str(mac_dst));
+	printf("Link connectivity to LAN station: %s (HW addr %s)\n", arg_addr, mac2str(ll.dst_mac));
 
 	/* Open a socket */
-	if((sock = socket(AF_INET, SOCK_PACKET, htons(ETH_P_802_2))) == -1) {
+	if((sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_802_2))) == -1) {
 		perror("socket");
 		return 1;
 	}
 	if(debug_flag)
-		fprintf(stderr, "Getting MAC address of interface '%s'\n", iface);
-	get_hwaddr(sock, iface, mac_src);
+		fprintf(stderr, "Getting MAC address of interface '%s'\n", ll.src_iface);
+	get_hwaddr(sock, ll.src_iface, &ll.src_ifindex, ll.src_mac);
 	if(debug_flag)
-		fprintf(stderr, "Testing via %s (HW addr %s)\n", iface, mac2str(mac_src));
+		fprintf(stderr, "Testing via %s (HW addr %s)\n", ll.src_iface, mac2str(ll.src_mac));
 
 	set_sighandlers();
-	for(i = 0; i < retries; i++) {
-		if(linkloop(sock, mac_src, mac_dst))
+	for(i = 0; i < ll.retries; i++) {
+		if(linkloop(sock))
 			;
 		if(debug_flag)
 			printf("Retry %d...\n", i);

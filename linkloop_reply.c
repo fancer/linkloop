@@ -18,6 +18,7 @@
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <netinet/if_ether.h>
+#include <linux/if_packet.h>
 #include <net/if.h>
 #include <sys/select.h>
 #include "config.h"
@@ -27,20 +28,25 @@
  * This program runs as a deamon, listening at the llc level on network interfaces 
  * passed on the command line, and responding by sending back a test packet.
  */
+
+/* Linkloop reply configuration */
+static struct linkloop_reply {
+	int ifindex_listen[MAX_IFACES];
+	u_int8_t mac_listen[MAX_IFACES][IFHWADDRLEN];
+	u_int8_t src_mac[IFHWADDRLEN];
+	u_int8_t dst_mac[IFHWADDRLEN];
+} llr;
  
 static char	*program = NULL;
-
-u_int8_t	mac_listened[MAX_IFACES][IFHWADDRLEN];
-u_int8_t	mac_dst[IFHWADDRLEN];
-u_int8_t	mac_src[IFHWADDRLEN];
 
 int main(int argc, char *argv[]) {
 	struct llc_packet spack;
 	struct llc_packet rpack;
-	int nif = argc -1;	/* number of interfaces to listen */
-	int i = nif;		/* loop iterator */
+	struct sockaddr_ll sll;
+	int nif = argc - 1;	/* number of interfaces to listen */
 	size_t len;
 	int sock;
+	int i;
 	
 	program = argv[0];
 
@@ -53,34 +59,34 @@ int main(int argc, char *argv[]) {
 
 	/* Open the socket */
 	printf ("Opening a socket\n");
-	if ((sock = socket(AF_INET, SOCK_PACKET, htons(ETH_P_802_2))) == -1) {
+	if ((sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_802_2))) == -1) {
 		perror("socket");
 		return 1;
 	}
 	
 	/* Getting mac addresses for all listened interfaces */
-	for(; i--;)
+	for(i = nif; i--;)
 	{
-		get_hwaddr(sock, argv[i+1], mac_listened[i]);
+		get_hwaddr(sock, argv[i+1], &llr.ifindex_listen[i], llr.mac_listen[i]);
 	}
 
 	/* listen and reply forever */
 	do {
 		len = recv_packet(sock, &rpack);
-		memcpy(mac_src, rpack.eth_hdr.ether_shost, IFHWADDRLEN);
-		memcpy(mac_dst, rpack.eth_hdr.ether_dhost, IFHWADDRLEN);
+		memcpy(llr.src_mac, rpack.eth_hdr.ether_shost, IFHWADDRLEN);
+		memcpy(llr.dst_mac, rpack.eth_hdr.ether_dhost, IFHWADDRLEN);
 
 		/* check against listened interfaces */
 		for(i = nif; i--;)
 		{
 			/* check if this packet has been received on a listened interface */
-			if(memcmp(mac_listened[i], mac_dst, IFHWADDRLEN))
+			if(memcmp(llr.mac_listen[i], llr.dst_mac, IFHWADDRLEN))
 				continue;
 				
 			/* return a test packet to the sender */
 			printf("Received packet on %s\n", argv[i+1]);
-			mk_test_packet(&spack, mac_dst, mac_src, len, 1);
-			send_packet(sock, argv[i+1], &spack);
+			mk_test_packet(&spack, &sll, llr.dst_mac, llr.ifindex_listen[i], llr.src_mac, len, 1);
+			send_packet(sock, &spack, &sll);
 		}
 	} while(1);
 

@@ -13,6 +13,7 @@
 #ifndef	LINKLOOP_H
 #define	LINKLOOP_H
 
+#include <linux/if_packet.h>
 #include <netinet/if_ether.h>
 
 #define DATA_SIZE(_pack_size)	(_pack_size - sizeof(struct llc))
@@ -27,6 +28,7 @@ struct llc {
 	unsigned char ssap;
 	unsigned char ctrl;
 } __attribute__ ((__packed__));
+
 struct llc_packet {
 	struct ether_header eth_hdr;
 	struct llc llc;
@@ -39,9 +41,11 @@ struct llc_packet {
 void dump_packet(struct llc_packet *pack);
 char *mac2str(u_int8_t *s);
 int parse_address(u_int8_t mac[], const char *str);
-void get_hwaddr(int sock, const char name[], u_int8_t mac[]);
-void mk_test_packet(struct llc_packet *pack, const u_int8_t src[], const u_int8_t dst[], size_t len, int response);
-void send_packet(int sock, const char iface[], struct llc_packet *pack);
+void get_hwaddr(int sock, const char name[], int *ifindex, u_int8_t mac[]);
+void mk_test_packet(struct llc_packet *pack, struct sockaddr_ll *sll,
+		    const u_int8_t src_mac[], int src_ifindex,
+		    const u_int8_t dst_mac[], size_t len, int response);
+void send_packet(int sock, struct llc_packet *pack, struct sockaddr_ll *sll);
 int recv_packet(int sock, struct llc_packet *pack);
 
 #endif	/* LINKLOOP_H */
