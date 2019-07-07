@@ -50,24 +50,21 @@ int main(int argc, char *argv[]) {
 	
 	llr.program = argv[0];
 
-	if (nif == 0 || nif > MAX_IFACES)
-	{
+	if (nif == 0 || nif > MAX_IFACES) {
 		/* one parameter expected at least: the lan interface name to listen */
-		printf("Expecting a list of one to %d interfaces to listen; eg: %s eth0 eth3\n",
+		fprintf(stderr, "Expecting a list of one to %d interfaces to listen; eg: %s eth0 eth3\n",
 			MAX_IFACES, llr.program);
 		return 1;
 	}
 
 	/* Open the socket */
-	printf ("Opening a socket\n");
 	if ((sock = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_802_2))) == -1) {
 		perror("socket");
 		return 1;
 	}
 	
 	/* Getting mac addresses for all listened interfaces */
-	for(i = nif; i--;)
-	{
+	for(i = 0; i < nif; ++i) {
 		get_hwaddr(sock, argv[i+1], &llr.ifindex_listen[i], llr.mac_listen[i]);
 	}
 
@@ -78,7 +75,7 @@ int main(int argc, char *argv[]) {
 		memcpy(llr.dst_mac, rpack.eth_hdr.ether_dhost, IFHWADDRLEN);
 
 		/* check against listened interfaces */
-		for(i = nif; i--;)
+		for(i = 0; i < nif; ++i)
 		{
 			/* check if this packet has been received on a listened interface */
 			if(memcmp(llr.mac_listen[i], llr.dst_mac, IFHWADDRLEN))
