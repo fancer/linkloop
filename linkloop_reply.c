@@ -80,7 +80,11 @@ int main(int argc, char *argv[]) {
 			/* check if this packet has been received on a listened interface */
 			if(memcmp(llr.mac_listen[i], llr.dst_mac, IFHWADDRLEN))
 				continue;
-				
+
+		        /* skip replies */
+			if(rpack.llc.dsap == 0x80) 
+				continue;
+
 			/* return a test packet to the sender */
 			printf("Received packet on %s\n", argv[i+1]);
 			mk_test_packet(&spack, &sll, llr.dst_mac, llr.ifindex_listen[i], llr.src_mac, len, 1);
